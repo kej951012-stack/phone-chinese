@@ -1,0 +1,63 @@
+// 전화중국어 연습실 — AI 연결 서버 함수 (Vercel + Google Gemini 무료 등급)
+// API 키는 여기서만 쓰이고, 학생 휴대폰에는 절대 전달되지 않아요.
+// Vercel 환경 변수:
+//   GEMINI_API_KEY   (필수) Google AI Studio에서 만든 무료 키
+//   ACCESS_CODE      (선택) 앱 접속 코드. 정하면 이 코드를 아는 사람만 쓸 수 있어요.
+//   MODEL_FAST       (선택) 통화 중 대답 모델 이름을 바꾸고 싶을 때
+//   MODEL_SMART      (선택) 교정 노트 모델 이름을 바꾸고 싶을 때
+// 모델이 없어졌거나 무료 등급에서 안 되면 목록의 다음 모델로 자동으로 넘어가요.
+
+const CHAIN = {
+  quick: [process.env.MODEL_FAST, 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'],
+  default: [process.env.MODEL_SMART, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
+};
+
+async function callGemini(model, prompt, maxTokens) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.8, responseMimeType: 'application/json' },
+    }),
+  });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ok: r.ok, j };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+
+  const need = process.env.ACCESS_CODE;
+  if (need && req.headers['x-access-code'] !== need) return res.status(401).json({ error: 'bad_code' });
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'no_key' });
+
+  let body = req.body || {};
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
+  const prompt = String(body.prompt || '');
+  const tier = body.tier === 'default' ? 'default' : 'quick';
+  if (!prompt || prompt.length > 30000) return res.status(400).json({ error: 'bad_prompt' });
+
+  const models = [...new Set(CHAIN[tier].filter(Boolean))];
+  const maxTokens = tier === 'default' ? 8192 : 2048; // 생각하는 데 쓰는 분량까지 넉넉히
+  let last = 'api_error';
+  for (const model of models) {
+    try {
+      const { status, ok, j } = await callGemini(model, prompt, maxTokens);
+      if (ok) {
+        const parts = j?.candidates?.[0]?.content?.parts || [];
+        const text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+        if (text) return res.status(200).json({ text, model });
+        last = 'empty';
+        continue;
+      }
+      if (status === 429) { last = 'rate_limited'; continue; } // 이 모델의 무료 한도가 차면 다음 모델로
+      if (status === 400 && /api key/i.test(j?.error?.message || '')) return res.status(500).json({ error: 'bad_key' });
+      if (status === 403) return res.status(500).json({ error: 'bad_key' });
+      last = 'api_error'; // 404(모델 없음) 등은 다음 모델로
+    } catch (_) { last = 'network'; }
+  }
+  return res.status(last === 'rate_limited' ? 429 : 502).json({ error: last });
+}

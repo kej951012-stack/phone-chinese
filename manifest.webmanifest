@@ -1,0 +1,17 @@
+{
+  "name": "전화중국어 연습실",
+  "short_name": "전화중국어",
+  "description": "AI와 중국어로 통화하고 교정 노트를 받는 연습 앱 · 씨쏠에듀",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#18161c",
+  "theme_color": "#d23a26",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

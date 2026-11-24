@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>전화중국어 연습실</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#d23a26">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="전화중국어">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 다정하지만 단정한 개인 코치 — 군더더기 없이 바로 통화
+   IDEA: 휴대폰 통화 화면 + 선생님의 빨간 펜 교정 노트
+   PICTURE: 오른쪽(모바일은 위) 실제 통화 화면 — 상대 아바타, 타이머, 말풍선, 큰 마이크
+   COLOUR and TYPE: 먹색 통화 화면, 종이 흰색 바탕, 주홍(朱) 포인트 / Noto Serif SC 중국어, Noto Sans KR 본문
+   LAYOUT: 좌측 설정 패널, 우측 통화기; 통화 종료 후 아래에 교정 노트 */
+:root{color-scheme:light dark;--bg:light-dark(#f7f4ee,#141317);--card:light-dark(#fffdf9,#1e1c22);--ink:light-dark(#1d1b20,#efeae2);--mute:light-dark(#6c6670,#a49ca6);--line:light-dark(#e4ddd2,#34303a);--red:#d23a26;--red2:light-dark(#fbe7e2,#3a1f1b);--phone:#18161c;--phone2:#25222b}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.gate{position:fixed;inset:0;background:#18161ccc;display:grid;place-items:center;padding:20px;z-index:9}
+.gate form{background:var(--card);color:var(--ink);border-radius:18px;padding:24px;width:min(380px,100%)}
+.gate h2{margin:0 0 6px;font-size:22px}.gate p{margin:0 0 14px;color:var(--mute);font-size:14px}
+.gate button{margin-top:12px;width:100%;min-height:46px;border:0;border-radius:10px;background:var(--red);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.gate .e{color:var(--red);font-size:13px;min-height:1em;margin-top:8px}
+.foot{text-align:center;color:var(--mute);font-size:13px;padding:0 16px 28px}.foot button{background:none;border:0;color:var(--mute);text-decoration:underline;font:inherit;cursor:pointer;min-height:36px}
+.zh{font-family:"Noto Serif SC","Songti SC",serif}
+header{padding:28px max(5vw,16px) 8px;max-width:1240px;margin:auto}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0;text-wrap:balance}
+h1 .zh{color:var(--red);font-weight:700;margin-inline-start:.3em;font-size:.8em}
+.sub{color:var(--mute);margin:8px 0 0}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;max-width:1240px;margin:auto;padding:16px max(5vw,16px) 40px}
+@media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}.phone{order:-1}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
+.tabs button{border:0;background:none;color:var(--ink);font:inherit;font-weight:500;min-height:44px;border-radius:9px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--card);box-shadow:0 1px 3px #0002;color:var(--red)}
+label.h{display:block;font-weight:700;font-size:14px;margin:18px 0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1px solid var(--line);background:none;color:var(--ink);font:inherit;font-size:14px;padding:8px 12px;min-height:40px;border-radius:999px;cursor:pointer;text-align:start}
+.chips button[aria-pressed=true]{border-color:var(--red);background:var(--red2);color:var(--red);font-weight:500}
+textarea,input[type=text],select{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:64px;resize:vertical}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-top:6px}
+.opts label{display:flex;gap:8px;align-items:center;font-size:14px;min-height:36px}
+.opts input[type=checkbox]{width:18px;height:18px;accent-color:var(--red)}
+.row{display:flex;gap:10px;align-items:center;font-size:14px}
+.row input[type=range]{flex:1;accent-color:var(--red)}
+:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.note{font-size:13px;color:var(--mute);margin:14px 0 0}
+/* phone */
+.phone{background:var(--phone);color:#f3eee8;border-radius:32px;padding:18px;box-shadow:0 20px 50px -20px #0008,inset 0 1px 0 #fff2;display:flex;flex-direction:column;min-height:620px;max-height:820px}
+.who{display:flex;align-items:center;gap:14px;padding:6px 6px 14px;border-bottom:1px solid #ffffff14}
+.ava{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8a70,var(--red) 60%,#8e1f12);display:grid;place-items:center;font:700 22px "Noto Serif SC",serif;flex:none;position:relative}
+.ava.talk::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid #ff8a70;animation:p 1.2s infinite}
+@keyframes p{from{opacity:.9;transform:scale(.95)}to{opacity:0;transform:scale(1.25)}}
+@media(prefers-reduced-motion:reduce){.ava.talk::after{animation:none}}
+.who b{display:block;font-size:17px}.who small{color:#b8afb9;font-size:13px}
+.timer{margin-inline-start:auto;font-variant-numeric:tabular-nums;color:#b8afb9;font-size:14px;white-space:nowrap}
+.log{flex:1;overflow-y:auto;padding:14px 4px;display:flex;flex-direction:column;gap:12px}
+.idle{margin:auto;text-align:center;color:#b8afb9;max-width:320px}
+.idle .zh{font-size:40px;color:#fff;display:block;margin-bottom:8px}
+.msg{max-width:88%;padding:10px 14px;border-radius:16px;position:relative}
+.msg.ai{background:var(--phone2);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.me{background:var(--red);align-self:flex-end;border-bottom-right-radius:4px}
+.msg .t{font-size:19px;line-height:1.5}
+.msg .py{font-size:13px;color:#c9bfca;margin-top:2px}
+.msg .ko{font-size:14px;color:#e3d9cf;margin-top:6px;padding-top:6px;border-top:1px dashed #ffffff22}
+.msg .fix{font-size:13px;background:#ffffff12;border-radius:8px;padding:6px 8px;margin-top:8px;color:#ffd7cc}
+.msg .act{display:flex;gap:6px;margin-top:6px}
+.msg .act button{background:#ffffff14;border:0;color:#e8e0e8;font:inherit;font-size:12px;padding:5px 10px;border-radius:999px;cursor:pointer;min-height:30px}
+.live{align-self:flex-end;color:#ffcfc4;font-size:15px;font-style:italic;max-width:88%}
+.typing{align-self:flex-start;color:#b8afb9;font-size:14px}
+.ctrl{border-top:1px solid #ffffff14;padding-top:14px;display:grid;gap:12px}
+.inrow{display:flex;gap:8px}
+.inrow input{background:#ffffff10;border-color:#ffffff22;color:#fff}
+.inrow input::placeholder{color:#a49ca6}
+.btns{display:flex;justify-content:center;align-items:center;gap:22px}
+.circ{width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;font:inherit;font-size:12px}
+.circ svg{width:26px;height:26px}
+.mic{width:78px;height:78px;background:#3a3640}.mic.on{background:var(--red);box-shadow:0 0 0 8px #d23a2640}
+.call{background:#2f9e5a}.end{background:#c9302c}
+.send{background:#ffffff18;border:0;color:#fff;border-radius:10px;padding:0 16px;font:inherit;cursor:pointer;min-height:44px;white-space:nowrap}
+.cap{text-align:center;font-size:12px;color:#a49ca6;margin-top:-4px}
+.hidden{display:none!important}
+/* report */
+#report{max-width:1240px;margin:0 auto 48px;padding:0 max(5vw,16px)}
+.paper{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3vw,32px)}
+.paper h2{font-size:28px;line-height:1.1;margin:0 0 6px}
+.scores{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.sc{background:var(--bg);border-radius:12px;padding:12px}
+.sc b{font-size:28px;color:var(--red)}.sc span{display:block;font-size:13px;color:var(--mute)}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--red)}
+.paper h3{font-size:17px;margin:24px 0 10px}
+.corr{border-inline-start:3px solid var(--red);padding:6px 0 6px 14px;margin:10px 0}
+.corr s{color:var(--mute)}.corr .zh{font-size:18px}.corr p{margin:4px 0 0;font-size:14px;color:var(--mute)}
+.vt{width:100%;border-collapse:collapse;font-size:15px}.vt td{padding:8px 6px;border-bottom:1px solid var(--line)}.vt td:first-child{font-size:18px;white-space:nowrap}
+.rbtn{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.rbtn button{font:inherit;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.rbtn button.pri{background:var(--red);color:#fff;border-color:var(--red)}
+details{margin-top:18px}summary{cursor:pointer;font-weight:500;min-height:36px}
+.err{color:#ffb4a6;font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1><span style="white-space:nowrap">전화중국어 연습실</span> <span class="zh" style="white-space:nowrap">打电话练中文</span></h1>
+  <p class="sub">AI 상대와 중국어로 통화하고, 끊고 나면 교정 노트를 받아요. 통화할 때 실제 이름, 학교, 연락처 같은 개인정보는 말하지 마세요.</p>
+</header>
+<main>
+  <section class="panel" aria-label="통화 설정">
+    <div class="tabs" role="group" aria-label="모드">
+      <button id="mT" aria-pressed="true">선생님 모드 · HSK 6+</button>
+      <button id="mS" aria-pressed="false">학생 모드</button>
+    </div>
+    <div id="lvBox" class="hidden">
+      <label class="h">학생 수준</label>
+      <div class="chips" id="levels"></div>
+    </div>
+    <label class="h">통화 상황</label>
+    <div class="chips" id="scenes"></div>
+    <label class="h" for="custom">직접 상황 쓰기 (선택)</label>
+    <textarea id="custom" placeholder="예: 중국 호텔에 전화해서 예약 날짜를 바꾸는 상황"></textarea>
+    <label class="h">옵션</label>
+    <div class="opts">
+      <label><input type="checkbox" id="oPy" checked> 병음 보기</label>
+      <label><input type="checkbox" id="oKo"> 한국어 뜻 보기</label>
+      <label><input type="checkbox" id="oFix" checked> 실시간 교정</label>
+      <label><input type="checkbox" id="oVoice" checked> AI 음성으로 듣기</label>
+    </div>
+    <div class="row" style="margin-top:10px"><span>말 속도</span><input type="range" id="rate" min="0.7" max="1.3" step="0.05" value="0.95"><span id="rateV">0.95</span></div>
+    <div class="row" style="margin-top:10px"><span style="white-space:nowrap">목소리</span>
+      <select id="voice"><option value="">기본 중국어 목소리</option></select></div>
+    <p class="note" id="capNote">마이크를 누르고 중국어로 말하면 글자로 바뀌어요. 마이크가 안 되는 기기에서는 입력창에 중국어를 쳐도 돼요.</p>
+  </section>
+
+  <section class="phone" aria-label="통화 화면">
+    <div class="who">
+      <div class="ava" id="ava">王</div>
+      <div><b id="pName">王老师</b><small id="pSub">통화 대기 중</small></div>
+      <div class="timer" id="timer">00:00</div>
+    </div>
+    <div class="log" id="log" aria-live="polite">
+      <div class="idle" id="idle"><span class="zh">喂？</span>왼쪽에서 상황을 고르고 초록 버튼을 누르면 통화가 시작돼요.</div>
+    </div>
+    <div class="ctrl">
+      <div class="inrow" id="inrow">
+        <input type="text" id="txt" placeholder="중국어로 입력하거나 마이크를 누르세요" disabled>
+        <button class="send" id="sendBtn" disabled>보내기</button>
+      </div>
+      <div class="btns">
+        <button class="circ call" id="callBtn" aria-label="통화 시작"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg></button>
+        <button class="circ mic hidden" id="micBtn" aria-label="말하기"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg></button>
+        <button class="circ end hidden" id="endBtn" aria-label="통화 끊기"><svg viewBox="0 0 24 24" fill="currentColor" style="transform:rotate(135deg)"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg></button>
+      </div>
+      <div class="cap" id="micCap"></div>
+      <div class="err" id="err"></div>
+    </div>
+  </section>
+</main>
+<section id="report" class="hidden" aria-live="polite"></section>
+<p class="foot">씨쏠에듀 CSOLEdu · <button id="resetCode">접속 코드 바꾸기</button></p>
+<div class="gate hidden" id="gate">
+  <form id="gateForm">
+    <h2>접속 코드</h2>
+    <p>선생님께 받은 코드를 입력하세요. 한 번 입력하면 이 기기에 저장돼요.</p>
+    <input type="text" id="codeIn" autocomplete="off" autocapitalize="off" placeholder="접속 코드">
+    <div class="e" id="gateErr"></div>
+    <button type="submit">시작하기</button>
+  </form>
+</div>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const LEVELS=[
+ {k:'hsk12',n:'입문 (HSK 1–2)',d:'HSK 1-2 level: very short simple sentences, only basic words, speak slowly and kindly.'},
+ {k:'hsk3',n:'초급 (HSK 3)',d:'HSK 3 level: short everyday sentences, common words only.'},
+ {k:'hsk4',n:'중급 (HSK 4)',d:'HSK 4 level: natural everyday Chinese, moderate vocabulary.'},
+ {k:'hsk5',n:'중상급 (HSK 5)',d:'HSK 5 level: natural fluent Chinese with some idiomatic phrases.'},
+ {k:'fl',n:'외고 중국어',d:'Korean foreign-language high school student, roughly HSK 4-5; mix school-life topics and opinion questions.'},
+ {k:'apib',n:'AP · IB 중국어',d:'AP Chinese / IB Chinese B student: practise interpersonal speaking like the AP conversation task or IB individual oral follow-up questions; ask for opinions, comparisons and cultural perspectives.'}];
+const SCENES={
+ t:[{n:'시사 토론',d:'Discuss a current social issue in China or Korea (e.g. AI and education, low birth rate, youth employment). Ask for the learner\'s opinion and push back politely.'},
+    {n:'비즈니스 전화',d:'A business phone call: a Chinese partner company calls to discuss schedule changes and contract details.'},
+    {n:'중국 학부모 상담',d:'A Chinese parent calls the learner, who is a Chinese tutor in Korea, to ask about lessons for their child: level, fees, schedule, teaching method.'},
+    {n:'HSK 6급 주제 대화',d:'Talk about an HSK 6 style topic (environment, technology, traditional culture, psychology) using rich vocabulary and chengyu; ask deep follow-up questions.'},
+    {n:'자유 수다',d:'A friendly casual chat between friends about life, hobbies, recent news.'}],
+ s:[{n:'자기소개',d:'Getting to know each other on the phone: name, school, family, hobbies.'},
+    {n:'식당 예약',d:'The learner calls a restaurant in Beijing to make a reservation. You are the restaurant staff.'},
+    {n:'택배 · 배달 문의',d:'The learner calls about a delivery that has not arrived. You are customer service.'},
+    {n:'친구와 약속 잡기',d:'A Chinese friend calls to make weekend plans: time, place, what to do.'},
+    {n:'학교생활 이야기',d:'Talk about school life, classes, exams and future plans.'},
+    {n:'중국 여행 계획',d:'Plan a trip to China together: cities, food, transport, budget.'}]};
+let mode='t',level='hsk4',scene=0;
+let history=[],timerId=null,t0=0,busy=false,inCall=false;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+const synth=window.speechSynthesis||null;
+let listening=false,heard='',rec=null,zhVoices=[];
+const sample=true,dict=SR,tts=synth;
+let code='';try{code=localStorage.getItem('pc_code')||''}catch(_){}
+
+function chips(el,arr,isOn,onPick){el.innerHTML='';arr.forEach((x,i)=>{const b=document.createElement('button');b.textContent=x.n;b.setAttribute('aria-pressed',isOn(x,i));b.onclick=()=>{onPick(x,i);render()};el.appendChild(b)})}
+function render(){
+ $('mT').setAttribute('aria-pressed',mode==='t');$('mS').setAttribute('aria-pressed',mode==='s');
+ $('lvBox').classList.toggle('hidden',mode==='t');
+ chips($('levels'),LEVELS,x=>x.k===level,x=>{level=x.k});
+ chips($('scenes'),SCENES[mode],(x,i)=>i===scene,(x,i)=>{scene=i});
+ $('pName').textContent=mode==='t'?'王老师':'小李';$('ava').textContent=mode==='t'?'王':'李';
+}
+$('mT').onclick=()=>{mode='t';scene=0;render()};$('mS').onclick=()=>{mode='s';scene=0;render()};
+$('rate').oninput=e=>{$('rateV').textContent=(+e.target.value).toFixed(2)};
+['oPy','oKo'].forEach(id=>$(id).onchange=()=>{document.querySelectorAll(id==='oPy'?'.msg .py':'.msg .ko').forEach(n=>n.classList.toggle('hidden',!$(id).checked))});
+render();
+
+function levelDesc(){return mode==='t'?'The learner is a Korean professional Chinese teacher at HSK 6+ level. Speak like a native at full natural speed and richness; use idioms, chengyu and advanced vocabulary.':LEVELS.find(x=>x.k===level).d}
+function sceneDesc(){const c=$('custom').value.trim();return c?('Custom situation written by the learner (Korean or Chinese): '+c):SCENES[mode][scene].d}
+function transcript(){return history.map(h=>(h.r==='ai'?'YOU (partner): ':'LEARNER: ')+h.zh).join('\n')}
+function parseJSON(s){const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<a)throw new Error('형식 오류');return JSON.parse(s.slice(a,b+1))}
+async function ask(prompt,tier){
+ let r;try{r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json','x-access-code':code},body:JSON.stringify({prompt,tier})})}catch(_){throw {code:'network'}}
+ let j={};try{j=await r.json()}catch(_){}
+ if(r.status===401){showGate('코드가 맞지 않아요. 다시 입력해 주세요.');throw {code:'bad_code'}}
+ if(!r.ok)throw {code:j.error||'api_error'};
+ return parseJSON(j.text||'');
+}
+function showGate(msg){$('gateErr').textContent=msg||'';$('codeIn').value=code;$('gate').classList.remove('hidden');setTimeout(()=>$('codeIn').focus(),50)}
+$('gateForm').onsubmit=e=>{e.preventDefault();code=$('codeIn').value.trim();try{localStorage.setItem('pc_code',code)}catch(_){}$('gate').classList.add('hidden')};
+$('resetCode').onclick=()=>showGate('');
+
+function turnPrompt(first){
+ return `You are role-playing a PHONE CALL in Mandarin Chinese (simplified characters) with a Korean learner of Chinese.
+Learner level: ${levelDesc()}
+Situation: ${sceneDesc()}
+Rules: Stay in character. Reply like real speech on the phone: 1-3 sentences, end most turns with a question or prompt so the learner keeps talking. Never switch to Korean or English in "zh". If the learner writes Korean, gently answer in Chinese and keep going.
+${first?'Start the call now with your opening line (e.g. 喂，你好…).':'Conversation so far:\n'+transcript()+'\nNow give your next line.'}
+Also check the learner's LAST line for mistakes (grammar, word choice, unnatural phrasing). If there is a clear mistake, put a very short Korean correction in "fix" in the form: 원문 → 더 자연스러운 표현 (짧은 이유). Otherwise "".
+Return ONLY JSON: {"zh":"your Chinese line","py":"pinyin with tone marks","ko":"Korean translation","fix":"${first?'':'…'}"}`;
+}
+
+function bubble(role,zh,py,ko,fix){
+ $('idle')?.remove();
+ const m=document.createElement('div');m.className='msg '+role;
+ const t=document.createElement('div');t.className='t zh';t.textContent=zh;m.appendChild(t);
+ if(role==='ai'){
+  const p=document.createElement('div');p.className='py';p.textContent=py||'';p.classList.toggle('hidden',!$('oPy').checked);m.appendChild(p);
+  const k=document.createElement('div');k.className='ko';k.textContent=ko||'';k.classList.toggle('hidden',!$('oKo').checked);m.appendChild(k);
+  if(fix&&$('oFix').checked){const f=document.createElement('div');f.className='fix';f.textContent='✎ '+fix;m.appendChild(f)}
+  const a=document.createElement('div');a.className='act';
+  const b1=document.createElement('button');b1.textContent='다시 듣기';b1.onclick=()=>say(zh);
+  const b2=document.createElement('button');b2.textContent='뜻 보기';b2.onclick=()=>k.classList.toggle('hidden');
+  const b3=document.createElement('button');b3.textContent='병음';b3.onclick=()=>p.classList.toggle('hidden');
+  a.append(b1,b2,b3);if(!tts)b1.remove();m.appendChild(a);
+ }
+ $('log').appendChild(m);$('log').scrollTop=$('log').scrollHeight;
+}
+function say(zh){if(!synth||!$('oVoice').checked)return;
+ try{synth.cancel();const u=new SpeechSynthesisUtterance(zh);u.lang='zh-CN';u.rate=+$('rate').value;
+  const v=zhVoices.find(x=>x.voiceURI===$('voice').value);if(v)u.voice=v;
+  u.onstart=()=>$('ava').classList.add('talk');u.onend=u.onerror=()=>$('ava').classList.remove('talk');
+  synth.speak(u)}catch(_){}}
+function loadVoices(){if(!synth)return;zhVoices=synth.getVoices().filter(v=>/^zh|cmn/i.test(v.lang)&&!/HK|TW|yue/i.test(v.lang)).concat(synth.getVoices().filter(v=>/zh[-_](TW|HK)/i.test(v.lang)));
+ const sel=$('voice'),cur=sel.value;sel.innerHTML='<option value="">기본 중국어 목소리</option>';
+ zhVoices.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name+' ('+v.lang+')';sel.appendChild(o)});sel.value=cur;
+ if(!zhVoices.length)$('capNote').textContent='이 기기에 중국어 목소리가 없으면 AI 음성이 어색하게 들릴 수 있어요. 기기 설정에서 중국어 음성을 내려받으면 좋아져요.'}
+function setBusy(v){busy=v;$('sendBtn').disabled=v||!inCall;$('txt').disabled=!inCall;
+ let ty=document.querySelector('.typing');if(v&&!ty){ty=document.createElement('div');ty.className='typing';ty.textContent='상대가 말하는 중…';$('log').appendChild(ty);$('log').scrollTop=1e9}if(!v&&ty)ty.remove()}
+function err(s){$('err').textContent=s||''}
+
+async function aiTurn(first){
+ setBusy(true);err();
+ try{const j=await ask(turnPrompt(first),'quick');const zh=String(j.zh||'').trim()||'喂？';
+  history.push({r:'ai',zh});bubble('ai',zh,String(j.py||''),String(j.ko||''),String(j.fix||''));say(zh);
+ }catch(e){const c=e&&e.code;err(c==='bad_code'?'접속 코드를 입력한 뒤 다시 시도해 주세요.':c==='rate_limited'?'무료 사용량이 잠깐 찼어요. 1분쯤 뒤에 다시 보내 보세요. 계속 안 되면 오늘 한도가 다 찬 거라 내일 다시 쓸 수 있어요.':c==='no_key'||c==='bad_key'?'서버의 AI 키 설정을 확인해 주세요 (선생님께 알려 주세요).':c==='network'?'인터넷 연결을 확인해 주세요.':'상대 응답을 받지 못했어요. 다시 보내 보세요.')}
+ setBusy(false);
+}
+async function learnerSays(text){
+ text=text.trim();if(!text||busy||!inCall)return;
+ history.push({r:'me',zh:text});bubble('me',text);$('txt').value='';await aiTurn(false);
+}
+$('sendBtn').onclick=()=>learnerSays($('txt').value);
+$('txt').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();learnerSays($('txt').value)}};
+
+$('callBtn').onclick=async()=>{
+ if(synth)try{synth.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;synth.speak(u)}catch(_){}
+ history=[];$('log').innerHTML='';$('report').classList.add('hidden');inCall=true;
+ $('callBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');if(dict)$('micBtn').classList.remove('hidden');
+ $('pSub').textContent=$('custom').value.trim()?'직접 쓴 상황':SCENES[mode][scene].n;
+ t0=Date.now();clearInterval(timerId);timerId=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);$('timer').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},500);
+ $('micCap').textContent=dict?'마이크를 누르고 말한 뒤 다시 누르면 보내져요':'';
+ await aiTurn(true);
+};
+
+function micIdle(){listening=false;$('micBtn').classList.remove('on');$('micCap').textContent=inCall?'마이크를 누르고 말한 뒤 다시 누르면 보내져요':''}
+function flush(){document.querySelector('.live')?.remove();const t=heard.trim();heard='';if(t)learnerSays(t)}
+$('micBtn').onclick=()=>{
+ if(!SR||!inCall)return;
+ if(!listening){
+  if(synth)try{synth.cancel()}catch(_){}
+  heard='';rec=new SR();rec.lang='zh-CN';rec.interimResults=true;rec.continuous=true;
+  let sent=false;
+  rec.onresult=ev=>{let fin='',part='';for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript;else part+=r[0].transcript}heard=fin+part;live(heard)};
+  rec.onerror=ev=>{if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){$('micBtn').classList.add('hidden');$('micCap').textContent='마이크가 허용되지 않아 입력창으로 대화해요'}};
+  rec.onend=()=>{const was=listening;micIdle();if(!sent){sent=true;flush()}};
+  try{rec.start();listening=true;$('micBtn').classList.add('on');$('micCap').textContent='듣고 있어요… 다 말하면 다시 누르세요'}catch(_){micIdle()}
+ }else{
+  $('micCap').textContent='보내는 중…';try{rec.stop()}catch(_){micIdle();flush()}
+ }
+};
+function live(s){let l=document.querySelector('.live');if(!l){l=document.createElement('div');l.className='live zh';$('log').appendChild(l)}l.textContent=s;$('log').scrollTop=1e9}
+
+$('endBtn').onclick=async()=>{
+ inCall=false;clearInterval(timerId);if(listening){listening=false;heard='';try{rec.abort()}catch(_){}}
+ if(synth)try{synth.cancel()}catch(_){}
+ $('endBtn').classList.add('hidden');$('micBtn').classList.add('hidden');$('callBtn').classList.remove('hidden');$('micBtn').classList.remove('on');
+ $('pSub').textContent='통화 종료 · '+$('timer').textContent;setBusy(false);$('micCap').textContent='';
+ if(!history.some(h=>h.r==='me'))return;
+ const R=$('report');R.classList.remove('hidden');R.innerHTML='<div class="paper"><h2>교정 노트 작성 중…</h2><p class="sub">통화 내용을 보고 있어요.</p></div>';
+ R.scrollIntoView({behavior:'smooth',block:'start'});
+ try{
+  const j=await ask(`You are an expert Chinese teacher giving feedback to a Korean learner after a phone-call role play in Mandarin.
+Learner level: ${levelDesc()}
+Situation: ${sceneDesc()}
+Transcript:
+${transcript()}
+Evaluate ONLY the LEARNER lines. Write all explanations in Korean. Return ONLY JSON:
+{"summary":"2-3 sentence Korean overall comment","score_fluency":1-5,"score_accuracy":1-5,"score_vocab":1-5,
+"corrections":[{"original":"learner's sentence","better":"corrected natural Chinese","why":"short Korean reason"}],
+"expressions":[{"zh":"useful native expression for this situation","py":"pinyin","ko":"Korean meaning"}],
+"vocab":[{"zh":"word","py":"pinyin","ko":"Korean meaning"}],
+"next":"one Korean tip for next practice"}
+Give up to 6 corrections (only real issues), 4 expressions, 8 vocab items from the call worth reviewing.`,'default');
+  showReport(j);
+ }catch(e){R.innerHTML='<div class="paper"><h2>교정 노트를 만들지 못했어요</h2><p class="sub">잠시 후 아래 버튼으로 다시 시도해 주세요.</p><div class="rbtn"><button class="pri" id="retry">다시 만들기</button></div></div>';$('retry').onclick=()=>{inCall=false;$('endBtn').onclick()}}
+};
+
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function showReport(j){
+ const R=$('report');R.innerHTML='';const P=el('div','paper');R.appendChild(P);
+ P.appendChild(el('h2',null,'교정 노트'));P.appendChild(el('p','sub',`${$('pSub').textContent} · 내 발화 ${history.filter(h=>h.r==='me').length}번`));
+ P.appendChild(el('p',null,String(j.summary||'')));
+ const S=el('div','scores');[['유창성',j.score_fluency],['정확성',j.score_accuracy],['어휘',j.score_vocab]].forEach(([n,v])=>{v=Math.max(0,Math.min(5,+v||0));const c=el('div','sc');c.appendChild(el('b',null,v+' / 5'));c.appendChild(el('span',null,n));const b=el('div','bar');const i=el('i');i.style.width=(v*20)+'%';b.appendChild(i);c.appendChild(b);S.appendChild(c)});P.appendChild(S);
+ const C=Array.isArray(j.corrections)?j.corrections:[];
+ P.appendChild(el('h3',null,C.length?'고쳐 보면 좋은 문장':'고칠 문장이 거의 없었어요'));
+ C.forEach(c=>{const d=el('div','corr');const a=el('div','zh');a.appendChild(el('s',null,String(c.original||'')));d.appendChild(a);d.appendChild(el('div','zh','→ '+String(c.better||'')));d.appendChild(el('p',null,String(c.why||'')));P.appendChild(d)});
+ const tbl=(title,arr)=>{if(!Array.isArray(arr)||!arr.length)return;P.appendChild(el('h3',null,title));const t=el('table','vt');arr.forEach(x=>{const r=el('tr');r.appendChild(el('td','zh',String(x.zh||'')));r.appendChild(el('td',null,String(x.py||'')));r.appendChild(el('td',null,String(x.ko||'')));t.appendChild(r)});const w=el('div','scroll');w.appendChild(t);P.appendChild(w)};
+ tbl('이 상황에서 원어민이 쓰는 표현',j.expressions);tbl('복습할 단어',j.vocab);
+ if(j.next){P.appendChild(el('h3',null,'다음 연습 팁'));P.appendChild(el('p',null,String(j.next)))}
+ const D=el('details');D.appendChild(el('summary',null,'통화 전체 대화 보기'));history.forEach(h=>D.appendChild(el('p','zh',(h.r==='ai'?'对方：':'我：')+h.zh)));P.appendChild(D);
+ const B=el('div','rbtn');
+ const cp=el('button','pri','노트 복사하기');cp.onclick=()=>{const txt=[ '[전화중국어 교정 노트] '+$('pSub').textContent,String(j.summary||''),`유창성 ${j.score_fluency}/5 · 정확성 ${j.score_accuracy}/5 · 어휘 ${j.score_vocab}/5`,'',...C.map(c=>`✗ ${c.original}\n✓ ${c.better}\n  ${c.why}`),'','[표현]',...(j.expressions||[]).map(x=>`${x.zh} (${x.py}) ${x.ko}`),'','[단어]',...(j.vocab||[]).map(x=>`${x.zh} (${x.py}) ${x.ko}`),'',j.next?'팁: '+j.next:''].join('\n');
+  navigator.clipboard.writeText(txt).then(()=>cp.textContent='복사됐어요').catch(()=>cp.textContent='복사하지 못했어요')};
+ const again=el('button',null,'같은 상황으로 다시 통화');again.onclick=()=>{window.scrollTo({top:0,behavior:'smooth'});$('callBtn').click()};
+ B.append(cp,again);P.appendChild(B);
+}
+
+if(synth){loadVoices();try{synth.addEventListener('voiceschanged',loadVoices)}catch(_){}}else{$('oVoice').checked=false;$('oVoice').disabled=true;$('voice').disabled=true}
+if(!SR)$('capNote').textContent='이 브라우저는 마이크 받아쓰기를 지원하지 않아요. 입력창에 중국어를 쳐서 대화하세요. (아이폰은 사파리, 안드로이드는 크롬 권장)';
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
