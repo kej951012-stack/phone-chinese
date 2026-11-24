@@ -74,4 +74,26 @@ export default async function handler(req, res) {
     } catch (e) { last = 'network'; tried.push(`${model}: 연결 실패 ${String(e).slice(0, 80)}`); }
   }
   console.error('Gemini failed', tried);
-  return res.status(last === 'rate_limited' ? 429 : 502).json({
+  return res.status(last === 'rate_limited' ? 429 : 502).json({ error: last, detail: tried.join(' | ') });
+}
+
+// 진단용: 브라우저에서 /api/chat?test=1&code=접속코드 를 열면 모델별 연결 결과를 보여 줘요.
+async function selfTest(req, res) {
+  const need = process.env.ACCESS_CODE;
+  if (need && String(req.query?.code || '') !== need) return res.status(401).json({ error: '주소 끝에 &code=접속코드 를 붙여 주세요' });
+  const key = process.env.GEMINI_API_KEY || '';
+  const out = { 키_설정됨: !!key, 키_앞부분: key.slice(0, 4), 키_길이: key.length, 결과: [] };
+  const models = [...new Set([...CHAIN.quick, ...CHAIN.default].filter(Boolean))];
+  for (const model of models) {
+    const t = Date.now();
+    try {
+      const { status, ok, j } = await callGemini(model, 'Reply ONLY with JSON: {"zh":"你好"}', 256, 12000);
+      const text = (j?.candidates?.[0]?.content?.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
+      out.결과.push({ model, status, 초: ((Date.now() - t) / 1000).toFixed(1), 답: ok ? text.slice(0, 60) : (j?.error?.message || '').slice(0, 200) });
+    } catch (e) {
+      out.결과.push({ model, status: '시간초과/연결실패', 초: ((Date.now() - t) / 1000).toFixed(1), 답: String(e).slice(0, 120) });
+    }
+  }
+  res.setHeader('content-type', 'application/json; charset=utf-8');
+  return res.status(200).send(JSON.stringify(out, null, 2));
+}
