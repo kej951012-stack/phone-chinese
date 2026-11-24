@@ -12,9 +12,16 @@ const CHAIN = {
   default: [process.env.MODEL_SMART, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
 };
 
-async function callGemini(model, prompt, maxTokens) {
+export const maxDuration = 60; // Vercel 함수 최대 실행 시간(초)
+
+async function callGemini(model, prompt, maxTokens, ms = 20000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const r = await fetch(url, {
+  let r;
+  try {
+  r = await fetch(url, {
+    signal: ctl.signal,
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
     body: JSON.stringify({
@@ -22,12 +29,14 @@ async function callGemini(model, prompt, maxTokens) {
       generationConfig: { maxOutputTokens: maxTokens, temperature: 0.8, responseMimeType: 'application/json' },
     }),
   });
+  } finally { clearTimeout(timer); }
   let j = {};
   try { j = await r.json(); } catch (_) {}
   return { status: r.status, ok: r.ok, j };
 }
 
 export default async function handler(req, res) {
+  if (req.method === 'GET' && String(req.query?.test || '') === '1') return selfTest(req, res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const need = process.env.ACCESS_CODE;
@@ -43,21 +52,26 @@ export default async function handler(req, res) {
   const models = [...new Set(CHAIN[tier].filter(Boolean))];
   const maxTokens = tier === 'default' ? 8192 : 2048; // 생각하는 데 쓰는 분량까지 넉넉히
   let last = 'api_error';
+  const tried = [];
   for (const model of models) {
     try {
       const { status, ok, j } = await callGemini(model, prompt, maxTokens);
+      if (!ok) tried.push(`${model}: ${status} ${(j?.error?.message || '').slice(0, 160)}`);
       if (ok) {
         const parts = j?.candidates?.[0]?.content?.parts || [];
         const text = parts.filter(p => !p.thought).map(p => p.text || '').join('');
         if (text) return res.status(200).json({ text, model });
         last = 'empty';
+        tried.push(`${model}: 빈 응답 (${j?.candidates?.[0]?.finishReason || '?'})`);
         continue;
       }
       if (status === 429) { last = 'rate_limited'; continue; } // 이 모델의 무료 한도가 차면 다음 모델로
-      if (status === 400 && /api key/i.test(j?.error?.message || '')) return res.status(500).json({ error: 'bad_key' });
-      if (status === 403) return res.status(500).json({ error: 'bad_key' });
+      if ((status === 400 && /api key/i.test(j?.error?.message || '')) || status === 401 || status === 403) {
+        console.error('Gemini key error', tried);
+        return res.status(500).json({ error: 'bad_key', detail: tried.join(' | ') });
+      }
       last = 'api_error'; // 404(모델 없음) 등은 다음 모델로
-    } catch (_) { last = 'network'; }
+    } catch (e) { last = 'network'; tried.push(`${model}: 연결 실패 ${String(e).slice(0, 80)}`); }
   }
-  return res.status(last === 'rate_limited' ? 429 : 502).json({ error: last });
-}
+  console.error('Gemini failed', tried);
+  return res.status(last === 'rate_limited' ? 429 : 502).json({
