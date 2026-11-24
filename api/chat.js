@@ -8,8 +8,8 @@
 // 모델이 없어졌거나 무료 등급에서 안 되면 목록의 다음 모델로 자동으로 넘어가요.
 
 const CHAIN = {
-  quick: [process.env.MODEL_FAST, 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-flash-latest'],
-  default: [process.env.MODEL_SMART, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'],
+  quick: [process.env.MODEL_FAST, 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'],
+  default: [process.env.MODEL_SMART, 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'],
 };
 
 export const maxDuration = 60; // Vercel 함수 최대 실행 시간(초)
