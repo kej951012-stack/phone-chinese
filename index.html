@@ -224,10 +224,12 @@ function sceneDesc(){const c=$('custom').value.trim();return c?('Custom situatio
 function transcript(){return history.map(h=>(h.r==='ai'?'YOU (partner): ':'LEARNER: ')+h.zh).join('\n')}
 function parseJSON(s){const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<a)throw new Error('형식 오류');return JSON.parse(s.slice(a,b+1))}
 async function ask(prompt,tier){
- let r;try{r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json','x-access-code':code},body:JSON.stringify({prompt,tier})})}catch(_){throw {code:'network'}}
+ const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),tier==='default'?58000:55000);
+ let r;try{r=await fetch('/api/chat',{signal:ctl.signal,method:'POST',headers:{'content-type':'application/json','x-access-code':code},body:JSON.stringify({prompt,tier})})}catch(e){clearTimeout(tm);throw {code:ctl.signal.aborted?'timeout':'network'}}
+ clearTimeout(tm);
  let j={};try{j=await r.json()}catch(_){}
  if(r.status===401){showGate('코드가 맞지 않아요. 다시 입력해 주세요.');throw {code:'bad_code'}}
- if(!r.ok)throw {code:j.error||'api_error'};
+ if(!r.ok)throw {code:j.error||('http_'+r.status),detail:j.detail||''};
  return parseJSON(j.text||'');
 }
 function showGate(msg){$('gateErr').textContent=msg||'';$('codeIn').value=code;$('gate').classList.remove('hidden');setTimeout(()=>$('codeIn').focus(),50)}
@@ -253,18 +255,29 @@ function bubble(role,zh,py,ko,fix){
   const k=document.createElement('div');k.className='ko';k.textContent=ko||'';k.classList.toggle('hidden',!$('oKo').checked);m.appendChild(k);
   if(fix&&$('oFix').checked){const f=document.createElement('div');f.className='fix';f.textContent='✎ '+fix;m.appendChild(f)}
   const a=document.createElement('div');a.className='act';
-  const b1=document.createElement('button');b1.textContent='다시 듣기';b1.onclick=()=>say(zh);
+  const b1=document.createElement('button');b1.textContent='다시 듣기';b1.onclick=()=>say(zh,true);
   const b2=document.createElement('button');b2.textContent='뜻 보기';b2.onclick=()=>k.classList.toggle('hidden');
   const b3=document.createElement('button');b3.textContent='병음';b3.onclick=()=>p.classList.toggle('hidden');
   a.append(b1,b2,b3);if(!tts)b1.remove();m.appendChild(a);
  }
  $('log').appendChild(m);$('log').scrollTop=$('log').scrollHeight;
 }
-function say(zh){if(!synth||!$('oVoice').checked)return;
- try{synth.cancel();const u=new SpeechSynthesisUtterance(zh);u.lang='zh-CN';u.rate=+$('rate').value;
-  const v=zhVoices.find(x=>x.voiceURI===$('voice').value);if(v)u.voice=v;
-  u.onstart=()=>$('ava').classList.add('talk');u.onend=u.onerror=()=>$('ava').classList.remove('talk');
-  synth.speak(u)}catch(_){}}
+let audioOK=false;
+function unlockAudio(){if(!synth||audioOK)return;audioOK=true;try{synth.resume()}catch(_){}}
+function hint(t){if(inCall)$('micCap').textContent=t}
+// force: "다시 듣기"처럼 직접 누른 경우 — 체크 여부와 상관없이 바로 재생
+function say(zh,force){if(!synth)return;if(!force&&!$('oVoice').checked)return;
+ try{
+  if(force&&(synth.speaking||synth.pending))synth.cancel();
+  const u=new SpeechSynthesisUtterance(zh);u.lang='zh-CN';u.rate=+$('rate').value;u.volume=1;
+  const v=zhVoices.find(x=>x.voiceURI===$('voice').value);if(v)u.voice=v; // 직접 고른 목소리만 지정
+  let started=false;
+  u.onstart=()=>{started=true;$('ava').classList.add('talk');hint('마이크를 누르고 말한 뒤 다시 누르면 보내져요')};
+  u.onend=()=>$('ava').classList.remove('talk');
+  u.onerror=e=>{$('ava').classList.remove('talk');if(!started)hint('🔈 소리 오류: '+(e.error||'알 수 없음')+' — 무음 스위치와 볼륨을 확인하고 "다시 듣기"를 눌러 주세요')};
+  synth.speak(u);
+  setTimeout(()=>{if(!started)hint('🔈 소리가 안 나면 무음 스위치를 끄고 말풍선의 "다시 듣기"를 눌러 주세요')},3000);
+ }catch(e){hint('🔈 소리 오류: '+e)}}
 function loadVoices(){if(!synth)return;zhVoices=synth.getVoices().filter(v=>/^zh|cmn/i.test(v.lang)&&!/HK|TW|yue/i.test(v.lang)).concat(synth.getVoices().filter(v=>/zh[-_](TW|HK)/i.test(v.lang)));
  const sel=$('voice'),cur=sel.value;sel.innerHTML='<option value="">기본 중국어 목소리</option>';
  zhVoices.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name+' ('+v.lang+')';sel.appendChild(o)});sel.value=cur;
@@ -277,18 +290,20 @@ async function aiTurn(first){
  setBusy(true);err();
  try{const j=await ask(turnPrompt(first),'quick');const zh=String(j.zh||'').trim()||'喂？';
   history.push({r:'ai',zh});bubble('ai',zh,String(j.py||''),String(j.ko||''),String(j.fix||''));say(zh);
- }catch(e){const c=e&&e.code;err(c==='bad_code'?'접속 코드를 입력한 뒤 다시 시도해 주세요.':c==='rate_limited'?'무료 사용량이 잠깐 찼어요. 1분쯤 뒤에 다시 보내 보세요. 계속 안 되면 오늘 한도가 다 찬 거라 내일 다시 쓸 수 있어요.':c==='no_key'||c==='bad_key'?'서버의 AI 키 설정을 확인해 주세요 (선생님께 알려 주세요).':c==='network'?'인터넷 연결을 확인해 주세요.':'상대 응답을 받지 못했어요. 다시 보내 보세요.')}
+ }catch(e){const c=e&&e.code;err(c==='bad_code'?'접속 코드를 입력한 뒤 다시 시도해 주세요.':c==='rate_limited'?'무료 사용량이 잠깐 찼어요. 1분쯤 뒤에 다시 보내 보세요. 계속 안 되면 오늘 한도가 다 찬 거라 내일 다시 쓸 수 있어요.':c==='no_key'||c==='bad_key'?'서버의 AI 키 설정을 확인해 주세요 (선생님께 알려 주세요).':c==='busy'?'지금 구글 AI 무료 서버가 붐벼요. 잠시 후 다시 보내 보세요.':c==='timeout'?'상대 응답이 너무 늦어요. 다시 보내 보세요.':c==='network'?'인터넷 연결을 확인해 주세요.':'상대 응답을 받지 못했어요. 다시 보내 보세요.');if(e&&e.detail)$('err').textContent+=' [자세히: '+e.detail+']'}
  setBusy(false);
 }
 async function learnerSays(text){
  text=text.trim();if(!text||busy||!inCall)return;
  history.push({r:'me',zh:text});bubble('me',text);$('txt').value='';await aiTurn(false);
 }
-$('sendBtn').onclick=()=>learnerSays($('txt').value);
+$('sendBtn').onclick=()=>{unlockAudio();learnerSays($('txt').value)};
+document.addEventListener('touchend',unlockAudio,{passive:true});document.addEventListener('click',unlockAudio);
 $('txt').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();learnerSays($('txt').value)}};
 
 $('callBtn').onclick=async()=>{
- if(synth)try{synth.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;synth.speak(u)}catch(_){}
+ // 아이폰: 누른 '그 순간' 실제 소리를 한 번 내야 이후 자동 재생이 허락돼요 → 상대가 바로 '喂？' 하고 받기
+ if(synth&&$('oVoice').checked){try{synth.cancel();const u=new SpeechSynthesisUtterance('喂？');u.lang='zh-CN';u.rate=+$('rate').value;u.volume=1;const v=zhVoices.find(x=>x.voiceURI===$('voice').value);if(v)u.voice=v;synth.speak(u);audioOK=true}catch(_){}}
  history=[];$('log').innerHTML='';$('report').classList.add('hidden');inCall=true;
  $('callBtn').classList.add('hidden');$('endBtn').classList.remove('hidden');if(dict)$('micBtn').classList.remove('hidden');
  $('pSub').textContent=$('custom').value.trim()?'직접 쓴 상황':SCENES[mode][scene].n;
@@ -302,7 +317,7 @@ function flush(){document.querySelector('.live')?.remove();const t=heard.trim();
 $('micBtn').onclick=()=>{
  if(!SR||!inCall)return;
  if(!listening){
-  if(synth)try{synth.cancel()}catch(_){}
+  if(synth&&synth.speaking)try{synth.cancel()}catch(_){}
   heard='';rec=new SR();rec.lang='zh-CN';rec.interimResults=true;rec.continuous=true;
   let sent=false;
   rec.onresult=ev=>{let fin='',part='';for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript;else part+=r[0].transcript}heard=fin+part;live(heard)};
